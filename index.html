@@ -216,22 +216,21 @@ function capNew(){const ch='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';capCode=Array.from
 function capCheck(){if($('#ci').value.toUpperCase()===capCode){capOK=true;$('#rcb').classList.add('ok');$('#rcx').innerHTML='';say()}else{say('Wrong characters, please try again');capNew()}}
 function authView(){
  app.innerHTML=`<div class="panel authbox"><div class="tabs"><button class="${amode==='login'?'':'g'}" onclick="amode='login';authView()">Login</button><button class="${amode==='signup'?'':'g'}" onclick="amode='signup';authView()">Sign up</button></div>`+
- (amode==='signup'?`<h2>Create your account</h2><input id="sn" placeholder="Full name"><input id="sc" placeholder="CNIC (13 digits)" inputmode="numeric" maxlength="15"><input id="sm" placeholder="Mobile number (03XXXXXXXXX)" inputmode="tel" maxlength="11"><input id="sp" type="password" placeholder="Set a password (4 to 10 characters)" maxlength="10"><small>Choose any password you like, from 4 to 10 characters.</small>`:`<h2>Welcome back</h2><input id="lm" placeholder="Mobile number" inputmode="tel" maxlength="11"><input id="lp" type="password" placeholder="Password" maxlength="10">`)+
- captchaHtml()+`<button onclick="${amode==='signup'?'doSignup()':'doLogin()'}">${amode==='signup'?'Create account':'Login'}</button><button class="g" onclick="go('list')">Back</button></div>`}
+ (amode==='signup'?`<h2>Create your account</h2><input id="sn" placeholder="Full name"><input id="sc" placeholder="CNIC (13 digits)" inputmode="numeric" maxlength="15"><input id="sm" placeholder="Mobile number (03XXXXXXXXX)" inputmode="tel" maxlength="11"><input id="sp" type="password" placeholder="Set a password (4 to 10 characters)" maxlength="10"><input id="sp2" type="password" placeholder="Confirm password" maxlength="10"><small>Choose any password you like, from 4 to 10 characters.</small>`:`<h2>Welcome back</h2><input id="lm" placeholder="Mobile number" inputmode="tel" maxlength="11"><input id="lp" type="password" placeholder="Password" maxlength="10">`)+
+ `<button onclick="${amode==='signup'?'doSignup()':'doLogin()'}">${amode==='signup'?'Create account':'Login'}</button><button class="g" onclick="go('list')">Back</button></div>`}
 async function doSignup(){try{
  if(!db||!user){say('Please open this page while signed in to claude.ai');return}
  const name=$('#sn').value.trim(),cnic=$('#sc').value.replace(/\D/g,''),mob=$('#sm').value.trim(),pw=$('#sp').value;
  if(name.length<2){say('Please enter your full name');return}if(cnic.length!==13){say('CNIC must be 13 digits');return}
  if(!/^03\d{9}$/.test(mob)){say('Enter a valid mobile number, like 03001234567');return}
  if(pw.length<4||pw.length>10){say('Password must be 4 to 10 characters');return}
- if(!capOK){say('Please tick "I am not a robot" and complete the check');return}
+ if($('#sp2').value!==pw){say('Passwords do not match');return}
  const r=await pref(),s=await r.get();if(s.exists){say('An account already exists. Please login.');amode='login';authView();return}
  const salt=crypto.randomUUID();await r.set({name,cnic,mobile:mob,salt,hash:await hp(pw,salt),at:Date.now()});loginOk({name,cnic,mobile:mob})}catch(e){say('Error: '+(e.message||e.code))}}
 async function doLogin(){try{
  if(Date.now()<lockT){say('Too many attempts. Please try again in a minute.');return}
  if(!db||!user){say('Please open this page while signed in to claude.ai');return}
  const mob=$('#lm').value.trim(),pw=$('#lp').value;if(!mob||!pw){say('Enter your mobile number and password');return}
- if(!capOK){say('Please tick "I am not a robot" and complete the check');return}
  const s=await(await pref()).get();if(!s.exists){say('No account found. Please sign up first.');return}
  const d=s.data();if(d.mobile!==mob||await hp(pw,d.salt)!==d.hash){if(++fails>=5){lockT=Date.now()+60000;fails=0}say('Wrong mobile number or password');return}
  fails=0;loginOk(d)}catch(e){say('Error: '+(e.message||e.code))}}
