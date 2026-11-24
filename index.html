@@ -156,8 +156,8 @@ function gather(){const j=jobs.find(x=>x.id===cur)||{};return{job:j.title||'',po
  exp:[...document.querySelectorAll('.row')].map(r=>{const i=r.querySelectorAll('input');return{org:i[0].value,role:i[1].value,from:i[2].value,to:i[3].value}}).filter(x=>x.org||x.role),photo:photoData,at:Date.now()}}
 async function submitApp(){
   const a=gather();if(!a.name||!a.phone){say('Name and mobile number are required');return}a.no=String(Math.floor(10000+Math.random()*90000));a.cnic=auth?auth.cnic:'';
-  try{say('Submitting…');const ref=db.collection('applications').doc(await user.id()),sn=await ref.get(),d=sn.exists?sn.data():{};
-    const {photo,...rest}=a;await ref.set({list:[...(d.list||[]),rest],photo:photo||d.photo||'',updated:Date.now()});
+  try{say('Submitting…');const d=await getMine();
+    const {photo,...rest}=a;await putMine({list:[...(d.list||[]),rest],photo:photo||d.photo||'',updated:Date.now()});
     lastApp=a;lastBlob=await makePdf(a,true);go('done')}catch(e){say('Error: '+(e.message||e.code))}
 }
 async function makePdf(a,keep){
@@ -202,8 +202,14 @@ function buildBanner(){const b=$('#banner');b.innerHTML='<div class="bn-track">'
 function bnStart(){clearInterval(bt);bt=setInterval(()=>bnGo(bi+1),3500)}
 function bnGo(n){const s=document.querySelectorAll('.bn-slide'),d=document.querySelectorAll('.bn-dots i');bi=(n+s.length)%s.length;s.forEach((x,i)=>x.classList.toggle('on',i===bi));d.forEach((x,i)=>x.classList.toggle('on',i===bi))}
 let auth=null,nextJob=null,fails=0,lockT=0,amode='login',capOK=false,capCode='',mine=[];
-const sess=()=>{try{return sessionStorage.getItem('rjb-auth')==='1'}catch(e){return false}};
+const sess=()=>{try{return sessionStorage.getItem('rjb-auth')}catch(e){return null}};
 async function hp(p,s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s+p));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+const LS={g:k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},s:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const online=()=>!!(db&&user);
+async function getProfile(m){if(online()){const s=await(await pref()).get();return s.exists?s.data():null}return LS.g('rjb-acc:'+m)}
+async function putProfile(d){if(online())await(await pref()).set(d);else LS.s('rjb-acc:'+d.mobile,d)}
+async function getMine(){if(online()){const s=await db.collection('applications').doc(await user.id()).get();return s.exists?s.data():{}}return LS.g('rjb-apps:'+auth.mobile)||{}}
+async function putMine(d){if(online())await db.collection('applications').doc(await user.id()).set(d);else LS.s('rjb-apps:'+auth.mobile,d)}
 async function pref(){return db.collection('data/users/'+await user.id()).doc('profile')}
 function upd(){const t=auth?'Dashboard':'Login';$('#ab').textContent=t;$('#mdash').textContent=t}
 function captchaHtml(){capOK=false;return `<div class="rc"><div class="rcb" id="rcb" onclick="capClick()"></div><span>I&#39;m not a robot</span><small>Security<br>check</small></div><div id="rcx"></div>`}
@@ -219,27 +225,27 @@ function authView(){
  (amode==='signup'?`<h2>Create your account</h2><input id="sn" placeholder="Full name"><input id="sc" placeholder="CNIC (13 digits)" inputmode="numeric" maxlength="15"><input id="sm" placeholder="Mobile number (03XXXXXXXXX)" inputmode="tel" maxlength="11"><input id="sp" type="password" placeholder="Set a password (4 to 10 characters)" maxlength="10"><input id="sp2" type="password" placeholder="Confirm password" maxlength="10"><small>Choose any password you like, from 4 to 10 characters.</small>`:`<h2>Welcome back</h2><input id="lm" placeholder="Mobile number" inputmode="tel" maxlength="11"><input id="lp" type="password" placeholder="Password" maxlength="10">`)+
  `<button onclick="${amode==='signup'?'doSignup()':'doLogin()'}">${amode==='signup'?'Create account':'Login'}</button><button class="g" onclick="go('list')">Back</button></div>`}
 async function doSignup(){try{
- if(!db||!user){say('Please open this page while signed in to claude.ai');return}
+ 
  const name=$('#sn').value.trim(),cnic=$('#sc').value.replace(/\D/g,''),mob=$('#sm').value.trim(),pw=$('#sp').value;
  if(name.length<2){say('Please enter your full name');return}if(cnic.length!==13){say('CNIC must be 13 digits');return}
  if(!/^03\d{9}$/.test(mob)){say('Enter a valid mobile number, like 03001234567');return}
  if(pw.length<4||pw.length>10){say('Password must be 4 to 10 characters');return}
  if($('#sp2').value!==pw){say('Passwords do not match');return}
- const r=await pref(),s=await r.get();if(s.exists){say('An account already exists. Please login.');amode='login';authView();return}
- const salt=crypto.randomUUID();await r.set({name,cnic,mobile:mob,salt,hash:await hp(pw,salt),at:Date.now()});loginOk({name,cnic,mobile:mob})}catch(e){say('Error: '+(e.message||e.code))}}
+ if(await getProfile(mob)){say('An account already exists for this mobile number. Please login.');amode='login';authView();return}
+ const salt=crypto.randomUUID();await putProfile({name,cnic,mobile:mob,salt,hash:await hp(pw,salt),at:Date.now()});loginOk({name,cnic,mobile:mob})}catch(e){say('Error: '+(e.message||e.code))}}
 async function doLogin(){try{
  if(Date.now()<lockT){say('Too many attempts. Please try again in a minute.');return}
- if(!db||!user){say('Please open this page while signed in to claude.ai');return}
+ 
  const mob=$('#lm').value.trim(),pw=$('#lp').value;if(!mob||!pw){say('Enter your mobile number and password');return}
- const s=await(await pref()).get();if(!s.exists){say('No account found. Please sign up first.');return}
- const d=s.data();if(d.mobile!==mob||await hp(pw,d.salt)!==d.hash){if(++fails>=5){lockT=Date.now()+60000;fails=0}say('Wrong mobile number or password');return}
+ const d=await getProfile(mob);if(!d){say('No account found. Please sign up first.');return}
+ if(d.mobile!==mob||await hp(pw,d.salt)!==d.hash){if(++fails>=5){lockT=Date.now()+60000;fails=0}say('Wrong mobile number or password');return}
  fails=0;loginOk(d)}catch(e){say('Error: '+(e.message||e.code))}}
-function loginOk(d){auth={name:d.name,cnic:d.cnic,mobile:d.mobile};try{sessionStorage.setItem('rjb-auth','1')}catch(e){}upd();if(nextJob){const j=nextJob;nextJob=null;go('apply',j)}else go('dash')}
+function loginOk(d){auth={name:d.name,cnic:d.cnic,mobile:d.mobile};try{sessionStorage.setItem('rjb-auth',d.mobile)}catch(e){}upd();if(nextJob){const j=nextJob;nextJob=null;go('apply',j)}else go('dash')}
 function logout(){auth=null;try{sessionStorage.removeItem('rjb-auth')}catch(e){}upd();go('list')}
-async function restore(){try{if(!sess()||!db||!user)return;const s=await(await pref()).get();if(s.exists){const d=s.data();auth={name:d.name,cnic:d.cnic,mobile:d.mobile};upd()}}catch(e){}}
+async function restore(){try{const m=sess();if(!m)return;const d=await getProfile(m);if(d){auth={name:d.name,cnic:d.cnic,mobile:d.mobile};upd()}}catch(e){}}
 async function dashView(){if(!auth)return authView();
  app.innerHTML=nav()+`<div class="panel"><h2>My Dashboard</h2><p><b>${esc(auth.name)}</b><br><small>CNIC •••••••••${esc(auth.cnic.slice(-4))} · ${esc(auth.mobile)}</small></p><button class="g" onclick="go('list')">Browse jobs</button><button class="g" onclick="logout()">Logout</button></div><div class="panel"><h2>My Applied Jobs</h2><div id="mya">Loading…</div></div>`;
- try{const s=await db.collection('applications').doc(await user.id()).get();const d=s.exists?s.data():{};
+ try{const d=await getMine();
   mine=(d.list||[]).map(x=>({...x,photo:d.photo})).sort((a,b)=>b.at-a.at);const el=$('#mya');if(!el)return;
   el.innerHTML=mine.length?mine.map(a=>`<div class="rv"><b>${esc(a.job)}</b><br><small>Application No. ${esc(a.no)} · ${new Date(a.at).toLocaleDateString()}</small><div><button onclick="dlMine('${esc(a.no)}')">Download PDF</button></div></div>`).join(''):`<p class="mu">You have not applied to any job yet.</p>`}catch(e){const el=$('#mya');if(el)el.textContent='Could not load your applications.'}}
 async function dlMine(no){try{await makePdf(mine.find(x=>x.no===no))}catch(e){say(e.message)}}
