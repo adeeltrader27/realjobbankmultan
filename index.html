@@ -70,6 +70,18 @@ header b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bn-l{left:10px}.bn-r{right:10px}
 .bn-dots{position:absolute;z-index:3;left:0;right:0;bottom:8px;text-align:center}.bn-dots i{display:inline-block;width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.55);margin:0 4px;cursor:pointer;transition:.3s}.bn-dots i.on{width:26px;border-radius:6px;background:#fff}
 @media(prefers-reduced-motion:reduce){#splash h1 span,#splash p{opacity:1!important;transform:none!important}}
+.tabs{display:flex;gap:8px;margin-bottom:8px}.tabs button{flex:1}
+.authbox{max-width:480px;margin-left:auto;margin-right:auto}
+.rc{display:flex;align-items:center;gap:12px;border:1px solid var(--bd);border-radius:6px;padding:12px 14px;margin:12px 0;background:#f9fbff;box-shadow:0 2px 6px rgba(0,0,0,.08);max-width:320px}
+[data-theme="dark"] .rc{background:#0e1a31}
+.rcb{width:26px;height:26px;border:2px solid #aab8cf;border-radius:4px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;transition:.2s}
+.rcb.load{border:3px solid #4a90e2;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;background:transparent}
+.rcb.ok{border-color:#2e9e57;background:#2e9e57;color:#fff}.rcb.ok::after{content:"✓";font-weight:700}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rc span{font-weight:600;flex:1}.rc small{font-size:10px;color:var(--mu);text-align:center}
+#rcx{margin:6px 0 12px;max-width:320px}#rcx canvas{border-radius:8px;border:1px solid var(--bd);display:block;margin-bottom:6px}
+#ab{font-size:14px;font-weight:600}header b{min-width:0}
+@media(max-width:799px){#ab{display:none}}
 .star{color:#f5a623;letter-spacing:2px}.rt{font-size:14px;transform:translateZ(18px)}
 .rv{border-top:1px solid var(--bd);padding:10px 0}.rv:first-child{border:0}.reply{margin:6px 0 0 14px;padding:8px 10px;background:rgba(30,111,230,.1);border-radius:10px;font-size:14px}
 .stin button{padding:2px 6px;font-size:26px;box-shadow:none!important;background:transparent!important;color:#c3cfe3!important;margin:0;transform:none!important}.stin button.on{color:#f5a623!important}
@@ -91,8 +103,8 @@ header b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style></head><body>
 <div id="splash"><h1></h1><p>Career Opportunities</p><div class="sbar"><i></i></div></div>
 <div class="orb o1"></div><div class="orb o2"></div>
-<header><button class="ic" id="mb" aria-label="Menu" onclick="toggleMenu()">☰</button><b>Real Job Bank Multan</b><div class="links"><a onclick="menuGo('list')">Career Opportunities</a><a onclick="menuGo('contact')">Contact Us</a></div><button class="ic" id="tb" aria-label="Toggle dark or light mode" onclick="toggleTheme()">☾</button></header>
-<nav id="menu"><a onclick="menuGo('list')">Career Opportunities</a><a onclick="menuGo('contact')">Contact Us</a></nav>
+<header><button class="ic" id="mb" aria-label="Menu" onclick="toggleMenu()">☰</button><b>Real Job Bank Multan</b><div class="links"><a onclick="menuGo('list')">Career Opportunities</a><a onclick="menuGo('contact')">Contact Us</a></div><button class="ic" id="ab" onclick="go('dash')">Login</button><button class="ic" id="tb" aria-label="Toggle dark or light mode" onclick="toggleTheme()">☾</button></header>
+<nav id="menu"><a onclick="menuGo('list')">Career Opportunities</a><a onclick="menuGo('contact')">Contact Us</a><a id="mdash" onclick="menuGo('dash')">Login</a></nav>
 <main><div id="banner"></div><div id="msg"></div><div id="app">Loading…</div>
 <div class="panel" id="contact"><h2>Contact Us — Real Job Bank Multan</h2>
 <p>Service timing: 9 AM to 5 PM<br>1st Floor, Fazal Center, Hazoori Bagh Road, 9 Number Chungi, Multan</p>
@@ -112,11 +124,11 @@ async function init(){
   buildBanner();splash();
   render();
   try{db=await claude.use('db');user=await claude.use('user');downloads=await claude.use('downloads');isOwner=(await user?.isOwner())??false;
-    if(db)db.collection('reviews').onSnapshot(s=>{reviews=s.docs.map(d=>({id:d.id,...d.data()}));soft()});if(isOwner&&db)db.collection('applications').onSnapshot(s=>{apps=s.docs.map(d=>({id:d.id,...d.data()}));render()});render()}catch(e){}
+    await restore();if(db)db.collection('reviews').onSnapshot(s=>{reviews=s.docs.map(d=>({id:d.id,...d.data()}));soft()});if(isOwner&&db)db.collection('applications').onSnapshot(s=>{apps=s.docs.map(d=>({id:d.id,...d.data()}));render()});render()}catch(e){}
 }
-function go(v,j){view=v;cur=j||null;exps=[1];photoData='';say();render();scrollTo(0,0)}
-function render(){$('#banner').style.display=view==='list'?'block':'none';view==='list'?list():view==='apply'?applyForm():view==='reviews'?reviewsView():appsView()}
-function nav(){return isOwner?`<div class="panel"><button class="g" onclick="go('list')">Jobs</button><button class="g" onclick="go('apps')">Applications (${apps.length})</button></div>`:''}
+function go(v,j){let m='';if(v==='apply'&&!auth){nextJob=j;v='auth';j=null;amode='login';m='Login required to apply for a job. Please login, or sign up if you are new.'}else if(v==='dash'&&!auth){v='auth'}view=v;cur=j||null;exps=[1];photoData='';say(m);render();scrollTo(0,0)}
+function render(){$('#banner').style.display=view==='list'?'block':'none';({list,apply:applyForm,reviews:reviewsView,apps:appsView,auth:authView,dash:dashView,done:doneView}[view]||list)();upd()}
+function nav(){return isOwner?`<div class="panel"><button class="g" onclick="go('list')">Jobs</button><button class="g" onclick="go('apps')">Applications (${flat().length})</button></div>`:''}
 function list(){
   app.innerHTML=nav()+`<div class="hero"><h1>Find Your Next Career</h1><p>Latest openings in Multan — apply in minutes</p></div>${filterBar()}<div class="grid">`+shown().map(j=>`<div class="card">
   <img src="${j.img}" alt="${esc(j.title)} job poster">
@@ -134,7 +146,7 @@ function applyForm(){
   <h3>Experience (date-wise)</h3><div id="ex"></div><button class="g" onclick="addEx()">+ Add more experience</button>
   <h3>Photo</h3><input id="ph2" type="file" accept="image/*" onchange="pickPhoto(this)"><img id="pv" style="max-width:120px;display:none;border-radius:10px">
   <p><button onclick="submitApp()">Submit & Generate PDF</button><button class="g" onclick="go('list')">Back</button></p></div>`;
-  drawEx();
+  drawEx();if(auth){$('#n').value=auth.name;$('#ph').value=auth.mobile}
 }
 function drawEx(){$('#ex').innerHTML=exps.map(()=>`<div class="row"><input placeholder="Company / Department"><input placeholder="Role"><small>From</small><input type="date"><small>To</small><input type="date"></div>`).join('')}
 function addEx(){const s=[...document.querySelectorAll('.row')].map(r=>[...r.querySelectorAll('input')].map(i=>i.value));exps.push(1);drawEx();document.querySelectorAll('.row').forEach((r,i)=>s[i]&&[...r.querySelectorAll('input')].forEach((x,k)=>x.value=s[i][k]))}
@@ -143,23 +155,24 @@ async function pickPhoto(el){const f=el.files[0];if(!f)return;try{photoData=awai
 function gather(){const j=jobs.find(x=>x.id===cur)||{};return{job:j.title||'',position:j.position||'',name:$('#n').value,father:$('#f').value,dob:$('#dob').value,phone:$('#ph').value,email:$('#em').value,address:$('#ad').value,edu:$('#ed').value,
  exp:[...document.querySelectorAll('.row')].map(r=>{const i=r.querySelectorAll('input');return{org:i[0].value,role:i[1].value,from:i[2].value,to:i[3].value}}).filter(x=>x.org||x.role),photo:photoData,at:Date.now()}}
 async function submitApp(){
-  const a=gather();if(!a.name||!a.phone){say('Name and mobile number are required');return}a.no=String(Math.floor(10000+Math.random()*90000));
-  try{say('Submitting…');if(db&&user)await db.collection('applications').doc(await user.id()).set(a);
-    await makePdf(a);view='list';render();say('Application submitted ✔ Your application number is '+a.no+'. PDF downloaded.')}catch(e){say('Error: '+(e.message||e.code))}
+  const a=gather();if(!a.name||!a.phone){say('Name and mobile number are required');return}a.no=String(Math.floor(10000+Math.random()*90000));a.cnic=auth?auth.cnic:'';
+  try{say('Submitting…');const ref=db.collection('applications').doc(await user.id()),sn=await ref.get(),d=sn.exists?sn.data():{};
+    const {photo,...rest}=a;await ref.set({list:[...(d.list||[]),rest],photo:photo||d.photo||'',updated:Date.now()});
+    lastApp=a;lastBlob=await makePdf(a,true);go('done')}catch(e){say('Error: '+(e.message||e.code))}
 }
-async function makePdf(a){
+async function makePdf(a,keep){
   const W=794,c=document.createElement('canvas');c.width=W;c.height=1123;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,1123);x.fillStyle='#10264a';
   let y=60;const T=(t,sz=16,b=false)=>{x.font=(b?'bold ':'')+sz+'px sans-serif';const mw=(a.photo&&y<210)?540:W-100;let l='';for(const w of String(t).split(' ')){if(x.measureText(l+w).width>mw){x.fillText(l,50,y);y+=sz+8;l=''}l+=w+' '}x.fillText(l,50,y);y+=sz+10};
   T('Real Job Bank Multan — Application',26,true);T('Application No: '+a.no,20,true);T('Job: '+a.job,16);y+=6;
-  T('Name: '+a.name);T("Father's name: "+a.father);T('Date of birth: '+a.dob);T('Mobile: '+a.phone);T('Email: '+a.email);T('Address: '+a.address);y+=6;
+  T('Name: '+a.name);T('CNIC: '+(a.cnic||'-'));T("Father's name: "+a.father);T('Date of birth: '+a.dob);T('Mobile: '+a.phone);T('Email: '+a.email);T('Address: '+a.address);y+=6;
   T('Education',18,true);a.edu.split('\n').forEach(l=>T(l));y+=6;T('Experience',18,true);a.exp.forEach(e=>T(`${e.from} to ${e.to} — ${e.org}, ${e.role}`));
   if(a.photo){const im=new Image;await new Promise(r=>{im.onload=r;im.src=a.photo});x.drawImage(im,W-200,40,150,150*im.height/im.width)}
   const {jsPDF}=window.jspdf,pdf=new jsPDF({unit:'px',format:[W,1123]});pdf.addImage(c.toDataURL('image/jpeg',.9),'JPEG',0,0,W,1123);
-  const out=pdf.output('blob');if(downloads)await downloads.save({filename:'application-'+a.name.replace(/\s+/g,'_')+'.pdf',data:out})}
-function appsView(){
-  app.innerHTML=nav()+(apps.length?apps.sort((a,b)=>b.at-a.at).map(a=>`<div class="panel"><h2>${esc(a.name)}</h2><small>No. ${esc(a.no||'-')} · ${esc(a.job)} · ${esc(a.phone)} · ${esc(a.email)}</small><p><button onclick="dl('${esc(a.id)}')">Download PDF</button></p></div>`).join(''):'<div class="panel">No applications yet.</div>');
+  const out=pdf.output('blob');if(keep)return out;if(downloads)await downloads.save({filename:'application-'+a.name.replace(/\s+/g,'_')+'.pdf',data:out})}
+function appsView(){const l=flat().sort((a,b)=>b.at-a.at);
+  app.innerHTML=nav()+(l.length?l.map(a=>`<div class="panel"><h2>${esc(a.name)}</h2><small>No. ${esc(a.no||'-')} · ${esc(a.job)} · ${esc(a.phone)} · ${esc(a.email)}</small><p><button onclick="dl('${esc(a.no)}')">Download PDF</button></p></div>`).join(''):'<div class="panel">No applications yet.</div>');
 }
-async function dl(id){try{await makePdf(apps.find(a=>a.id===id))}catch(e){say(e.message)}}
+async function dl(no){try{await makePdf(flat().find(a=>a.no===no))}catch(e){say(e.message)}}
 let reviews=[],rate_=0,city='All';
 const cities=()=>['All',...new Set(jobs.map(j=>j.loc))];
 const shown=()=>jobs.filter(j=>city==='All'||j.loc===city);
@@ -188,8 +201,61 @@ function splash(){const s=$('#splash');let i=0;$('#splash h1').innerHTML='Real J
 function buildBanner(){const b=$('#banner');b.innerHTML='<div class="bn-track">'+jobs.map(j=>`<div class="bn-slide" onclick="go('apply','${j.id}')"><div class="bn-bg" style="background-image:url('${j.img}')"></div><img src="${j.img}" alt="${esc(j.title)}"><div class="bn-cap">${esc(j.title)} · ${esc(j.salary)} <b>Apply Now</b></div></div>`).join('')+'</div><button class="bn-a bn-l" aria-label="Previous" onclick="bnGo(bi-1)">‹</button><button class="bn-a bn-r" aria-label="Next" onclick="bnGo(bi+1)">›</button><div class="bn-dots">'+jobs.map((_,i)=>`<i onclick="bnGo(${i})"></i>`).join('')+'</div>';b.onmouseenter=()=>clearInterval(bt);b.onmouseleave=bnStart;bnGo(0);bnStart()}
 function bnStart(){clearInterval(bt);bt=setInterval(()=>bnGo(bi+1),3500)}
 function bnGo(n){const s=document.querySelectorAll('.bn-slide'),d=document.querySelectorAll('.bn-dots i');bi=(n+s.length)%s.length;s.forEach((x,i)=>x.classList.toggle('on',i===bi));d.forEach((x,i)=>x.classList.toggle('on',i===bi))}
+let auth=null,nextJob=null,fails=0,lockT=0,amode='login',capOK=false,capCode='',mine=[];
+const sess=()=>{try{return sessionStorage.getItem('rjb-auth')==='1'}catch(e){return false}};
+async function hp(p,s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s+p));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+async function pref(){return db.collection('data/users/'+await user.id()).doc('profile')}
+function upd(){const t=auth?'Dashboard':'Login';$('#ab').textContent=t;$('#mdash').textContent=t}
+function captchaHtml(){capOK=false;return `<div class="rc"><div class="rcb" id="rcb" onclick="capClick()"></div><span>I&#39;m not a robot</span><small>Security<br>check</small></div><div id="rcx"></div>`}
+function capClick(){const b=$('#rcb');if(capOK||b.classList.contains('load'))return;b.classList.add('load');setTimeout(()=>{b.classList.remove('load');capNew()},900)}
+function capNew(){const ch='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';capCode=Array.from({length:5},()=>ch[Math.floor(Math.random()*ch.length)]).join('');
+ $('#rcx').innerHTML='<canvas id="cc" width="220" height="64"></canvas><input id="ci" placeholder="Type the characters above" maxlength="5" autocomplete="off"><button type="button" onclick="capCheck()">Verify</button><button type="button" class="g" onclick="capNew()">New code</button>';
+ const c=$('#cc').getContext('2d');c.fillStyle='#eef4ff';c.fillRect(0,0,220,64);
+ for(let i=0;i<7;i++){c.strokeStyle='rgba(30,111,230,'+(.2+Math.random()*.4)+')';c.beginPath();c.moveTo(Math.random()*220,Math.random()*64);c.lineTo(Math.random()*220,Math.random()*64);c.stroke()}
+ [...capCode].forEach((t,i)=>{c.save();c.translate(26+i*38,40);c.rotate((Math.random()-.5)*.6);c.font='bold '+(28+Math.random()*8)+'px sans-serif';c.fillStyle='#10264a';c.fillText(t,-10,0);c.restore()})}
+function capCheck(){if($('#ci').value.toUpperCase()===capCode){capOK=true;$('#rcb').classList.add('ok');$('#rcx').innerHTML='';say()}else{say('Wrong characters, please try again');capNew()}}
+function authView(){
+ app.innerHTML=`<div class="panel authbox"><div class="tabs"><button class="${amode==='login'?'':'g'}" onclick="amode='login';authView()">Login</button><button class="${amode==='signup'?'':'g'}" onclick="amode='signup';authView()">Sign up</button></div>`+
+ (amode==='signup'?`<h2>Create your account</h2><input id="sn" placeholder="Full name"><input id="sc" placeholder="CNIC (13 digits)" inputmode="numeric" maxlength="15"><input id="sm" placeholder="Mobile number (03XXXXXXXXX)" inputmode="tel" maxlength="11"><input id="sp" type="password" placeholder="Set a password (4 to 10 characters)" maxlength="10"><small>Choose any password you like, from 4 to 10 characters.</small>`:`<h2>Welcome back</h2><input id="lm" placeholder="Mobile number" inputmode="tel" maxlength="11"><input id="lp" type="password" placeholder="Password" maxlength="10">`)+
+ captchaHtml()+`<button onclick="${amode==='signup'?'doSignup()':'doLogin()'}">${amode==='signup'?'Create account':'Login'}</button><button class="g" onclick="go('list')">Back</button></div>`}
+async function doSignup(){try{
+ if(!db||!user){say('Please open this page while signed in to claude.ai');return}
+ const name=$('#sn').value.trim(),cnic=$('#sc').value.replace(/\D/g,''),mob=$('#sm').value.trim(),pw=$('#sp').value;
+ if(name.length<2){say('Please enter your full name');return}if(cnic.length!==13){say('CNIC must be 13 digits');return}
+ if(!/^03\d{9}$/.test(mob)){say('Enter a valid mobile number, like 03001234567');return}
+ if(pw.length<4||pw.length>10){say('Password must be 4 to 10 characters');return}
+ if(!capOK){say('Please tick "I am not a robot" and complete the check');return}
+ const r=await pref(),s=await r.get();if(s.exists){say('An account already exists. Please login.');amode='login';authView();return}
+ const salt=crypto.randomUUID();await r.set({name,cnic,mobile:mob,salt,hash:await hp(pw,salt),at:Date.now()});loginOk({name,cnic,mobile:mob})}catch(e){say('Error: '+(e.message||e.code))}}
+async function doLogin(){try{
+ if(Date.now()<lockT){say('Too many attempts. Please try again in a minute.');return}
+ if(!db||!user){say('Please open this page while signed in to claude.ai');return}
+ const mob=$('#lm').value.trim(),pw=$('#lp').value;if(!mob||!pw){say('Enter your mobile number and password');return}
+ if(!capOK){say('Please tick "I am not a robot" and complete the check');return}
+ const s=await(await pref()).get();if(!s.exists){say('No account found. Please sign up first.');return}
+ const d=s.data();if(d.mobile!==mob||await hp(pw,d.salt)!==d.hash){if(++fails>=5){lockT=Date.now()+60000;fails=0}say('Wrong mobile number or password');return}
+ fails=0;loginOk(d)}catch(e){say('Error: '+(e.message||e.code))}}
+function loginOk(d){auth={name:d.name,cnic:d.cnic,mobile:d.mobile};try{sessionStorage.setItem('rjb-auth','1')}catch(e){}upd();if(nextJob){const j=nextJob;nextJob=null;go('apply',j)}else go('dash')}
+function logout(){auth=null;try{sessionStorage.removeItem('rjb-auth')}catch(e){}upd();go('list')}
+async function restore(){try{if(!sess()||!db||!user)return;const s=await(await pref()).get();if(s.exists){const d=s.data();auth={name:d.name,cnic:d.cnic,mobile:d.mobile};upd()}}catch(e){}}
+async function dashView(){if(!auth)return authView();
+ app.innerHTML=nav()+`<div class="panel"><h2>My Dashboard</h2><p><b>${esc(auth.name)}</b><br><small>CNIC •••••••••${esc(auth.cnic.slice(-4))} · ${esc(auth.mobile)}</small></p><button class="g" onclick="go('list')">Browse jobs</button><button class="g" onclick="logout()">Logout</button></div><div class="panel"><h2>My Applied Jobs</h2><div id="mya">Loading…</div></div>`;
+ try{const s=await db.collection('applications').doc(await user.id()).get();const d=s.exists?s.data():{};
+  mine=(d.list||[]).map(x=>({...x,photo:d.photo})).sort((a,b)=>b.at-a.at);const el=$('#mya');if(!el)return;
+  el.innerHTML=mine.length?mine.map(a=>`<div class="rv"><b>${esc(a.job)}</b><br><small>Application No. ${esc(a.no)} · ${new Date(a.at).toLocaleDateString()}</small><div><button onclick="dlMine('${esc(a.no)}')">Download PDF</button></div></div>`).join(''):`<p class="mu">You have not applied to any job yet.</p>`}catch(e){const el=$('#mya');if(el)el.textContent='Could not load your applications.'}}
+async function dlMine(no){try{await makePdf(mine.find(x=>x.no===no))}catch(e){say(e.message)}}
+const flat=()=>apps.flatMap(d=>(d.list||(d.name?[d]:[])).map(x=>({...x,photo:x.photo||d.photo})));
+let lastApp=null,lastBlob=null;
+const WA='923265727500';
+function waText(a){return `New job application\nApplication No: ${a.no}\nJob: ${a.job}\nName: ${a.name}\nMobile: ${a.phone}\nCNIC: ${a.cnic||'-'}`}
+function doneView(){const a=lastApp;if(!a)return go('list');app.innerHTML=`<div class="panel authbox"><h2>Application submitted ✔</h2><p>Your application number is <b style="font-size:24px">${esc(a.no)}</b></p><p>Last step: send your application PDF to Real Job Bank Multan on WhatsApp.</p><button onclick="sendWa()">Send PDF on WhatsApp</button><button class="g" onclick="dlLast()">Download PDF</button><button class="g" onclick="go('dash')">My Dashboard</button></div>`}
+async function sendWa(){const a=lastApp,file=new File([lastBlob],'application-'+a.no+'.pdf',{type:'application/pdf'});
+ try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],text:waText(a)});return}}catch(e){if(e&&e.name==='AbortError')return}
+ const l=document.createElement('a');l.href='https://wa.me/'+WA+'?text='+encodeURIComponent(waText(a)+'\n(My application PDF is attached)');l.target='_blank';l.rel='noopener';document.body.appendChild(l);l.click();l.remove();
+ try{if(downloads)await downloads.save({filename:file.name,data:lastBlob});say('PDF saved. Please attach it in the WhatsApp chat.')}catch(e){}}
+async function dlLast(){try{await makePdf(lastApp)}catch(e){say(e.message)}}
 function toggleMenu(){$('#menu').classList.toggle('open')}
-function menuGo(x){$('#menu').classList.remove('open');if(x==='contact')$('#contact').scrollIntoView({behavior:'smooth'});else go('list')}
+function menuGo(x){$('#menu').classList.remove('open');if(x==='contact')$('#contact').scrollIntoView({behavior:'smooth'});else if(x==='dash')go('dash');else go('list')}
 function setTheme(t){document.documentElement.dataset.theme=t;try{localStorage.setItem('rjb-theme',t)}catch(e){}$('#tb').textContent=t==='dark'?'☀':'☾'}
 function toggleTheme(){setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark')}
 {let t0;try{t0=localStorage.getItem('rjb-theme')}catch(e){}setTheme(t0||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))}
